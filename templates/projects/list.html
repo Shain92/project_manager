@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}Проекты - Project Manager{% endblock %}
+
+{% block content %}
+<h1>Проекты</h1>
+
+{% if projects %}
+<table class="projects-table">
+    <thead>
+        <tr>
+            <th>Имя</th>
+            <th>Шифр</th>
+            <th>Код</th>
+            <th>Статус</th>
+            <th>% готовности</th>
+            <th>Ответственные</th>
+            <th>Создан</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for project in projects %}
+        <tr>
+            <td>{{ project.name }}</td>
+            <td>{{ project.cipher }}</td>
+            <td>{{ project.code }}</td>
+            <td>
+                <span class="status-badge" style="background-color: {{ project.status.color }};">
+                    {{ project.status.name }}
+                </span>
+            </td>
+            <td>{{ project.completion_percent }}%</td>
+            <td>
+                {% for user in project.responsible.all %}
+                    {{ user.username }}{% if not forloop.last %}, {% endif %}
+                {% empty %}
+                    Не назначен
+                {% endfor %}
+            </td>
+            <td>{{ project.created_at|date:"d.m.Y" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>Проекты не найдены.</p>
+{% endif %}
+{% endblock %}
+

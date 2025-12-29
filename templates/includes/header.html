@@ -1,10 +1,23 @@
 {% if user.is_authenticated %}
 <nav>
     <ul>
-        <li><a href="{% url 'users:home' %}">Главная</a></li>
         <li>
-            <span>{{ user.username }}</span>
-            <a href="{% url 'users:logout' %}">Выход</a>
+            <button class="menu-toggle" id="menuToggle" aria-label="Открыть меню">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </li>
+        <li>
+            <span class="brand">АСС</span>
+        </li>
+        <li class="user-menu-container">
+            <button class="user-menu-toggle" id="userMenuToggle">
+                <span class="username">{{ user.username }}</span>
+            </button>
+            <div class="user-dropdown" id="userDropdown">
+                <a href="{% url 'users:logout' %}" class="logout-btn">Выход</a>
+            </div>
         </li>
     </ul>
 </nav>

@@ -10,23 +10,81 @@
     <div class="container">
         {% include 'includes/header.html' %}
         
-        <div class="content">
-            {% if messages %}
-            <div class="messages">
-                {% for message in messages %}
-                <div class="message {{ message.tags }}">
-                    {{ message }}
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
+        <div class="main-wrapper">
+            {% include 'includes/sidebar.html' %}
             
-            {% block content %}
-            {% endblock %}
+            <div class="content">
+                {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                    <div class="message {{ message.tags }}">
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                {% block content %}
+                {% endblock %}
+            </div>
         </div>
         
         {% include 'includes/footer.html' %}
     </div>
+    
+    <script>
+        // Управление сайдбаром на мобильных устройствах
+        const menuToggle = document.getElementById('menuToggle');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarClose = document.getElementById('sidebarClose');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        
+        function openSidebar() {
+            if (sidebar) {
+                sidebar.classList.add('active');
+                if (sidebarOverlay) sidebarOverlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+        
+        function closeSidebar() {
+            if (sidebar) {
+                sidebar.classList.remove('active');
+                if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        }
+        
+        if (menuToggle) {
+            menuToggle.addEventListener('click', openSidebar);
+        }
+        
+        if (sidebarClose) {
+            sidebarClose.addEventListener('click', closeSidebar);
+        }
+        
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', closeSidebar);
+        }
+        
+        // Управление выпадающим меню пользователя
+        const userMenuToggle = document.getElementById('userMenuToggle');
+        const userDropdown = document.getElementById('userDropdown');
+        
+        if (userMenuToggle && userDropdown) {
+            userMenuToggle.addEventListener('click', function(e) {
+                e.stopPropagation();
+                userDropdown.classList.toggle('active');
+            });
+            
+            // Закрытие меню при клике вне его
+            document.addEventListener('click', function(e) {
+                if (!userMenuToggle.contains(e.target) && !userDropdown.contains(e.target)) {
+                    userDropdown.classList.remove('active');
+                }
+            });
+        }
+    </script>
 </body>
 </html>
 

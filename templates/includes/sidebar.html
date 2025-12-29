@@ -1,0 +1,10 @@
+{% if user.is_authenticated %}
+<aside class="sidebar" id="sidebar">
+    <nav class="sidebar-nav">
+        <ul>
+            <li><a href="{% url 'users:home' %}">Главная</a></li>
+        </ul>
+    </nav>
+</aside>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+{% endif %}

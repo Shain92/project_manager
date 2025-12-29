@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Project Manager{% endblock %}</title>
+    {% include 'includes/styles.html' %}
+</head>
+<body>
+    <div class="container">
+        {% include 'includes/header.html' %}
+        
+        <div class="content">
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="message {{ message.tags }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            {% block content %}
+            {% endblock %}
+        </div>
+        
+        {% include 'includes/footer.html' %}
+    </div>
+</body>
+</html>
+

@@ -1,0 +1,12 @@
+{% if user.is_authenticated %}
+<nav>
+    <ul>
+        <li><a href="{% url 'users:home' %}">Главная</a></li>
+        <li>
+            <span>{{ user.username }}!</span>
+            <a href="{% url 'users:logout' %}">Выход</a>
+        </li>
+    </ul>
+</nav>
+{% endif %}
+

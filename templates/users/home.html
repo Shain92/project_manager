@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block title %}Главная - Project Manager{% endblock %}
+
+{% block content %}
+<h1>Добро пожаловать, {{ user.username }}!</h1>
+<p>Вы успешно вошли в систему.</p>
+<p>Email: {{ user.email|default:"Не указан" }}</p>
+<p>Дата регистрации: {{ user.date_joined|date:"d.m.Y H:i" }}</p>
+{% endblock %}
+
+

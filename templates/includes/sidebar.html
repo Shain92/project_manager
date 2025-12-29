@@ -2,8 +2,18 @@
 <aside class="sidebar" id="sidebar">
     <nav class="sidebar-nav">
         <ul>
-            <li><a href="{% url 'users:home' %}">Главная</a></li>
-            <li><a href="{% url 'projects:list' %}">Проекты</a></li>
+            <li>
+                <a href="{% url 'users:home' %}" 
+                   class="{% if request.resolver_match.url_name == 'home' and request.resolver_match.namespace == 'users' %}active{% endif %}">
+                    Главная
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'projects:list' %}" 
+                   class="{% if request.resolver_match.url_name == 'list' and request.resolver_match.namespace == 'projects' %}active{% endif %}">
+                    Проекты
+                </a>
+            </li>
         </ul>
     </nav>
 </aside>

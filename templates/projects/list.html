@@ -171,6 +171,7 @@
                     <option value="on_review">На проверке</option>
                     <option value="fixing">Исправление</option>
                     <option value="done">Сдано</option>
+                    <option value="problem">Проблема</option>
                 </select>
             </div>
             
@@ -559,7 +560,8 @@
         'in_work': { name: 'В работе', color: '#FFC107' },
         'on_review': { name: 'На проверке', color: '#2196F3' },
         'fixing': { name: 'Исправление', color: '#9C27B0' },
-        'done': { name: 'Сдано', color: '#4CAF50' }
+        'done': { name: 'Сдано', color: '#4CAF50' },
+        'problem': { name: 'Проблема', color: '#E74C3C' }
     };
 
     // Загрузить заметки проекта
@@ -609,14 +611,14 @@
                     <div class="note-header-info">
                         <div class="note-header-top">
                             <span class="note-date">${note.created_at}</span>
+                            <span class="note-status-badge" style="background-color: ${note.status_color};">
+                                ${escapeHtml(note.status)}
+                            </span>
                         </div>
                         <h4 class="note-title clickable" onclick="editNote(${note.id})" title="Нажмите для редактирования">${escapeHtml(note.title)}</h4>
                     </div>
                 </div>
                 <div class="note-card-body">
-                    <span class="note-status-badge" style="background-color: ${note.status_color};">
-                        ${escapeHtml(note.status)}
-                    </span>
                     <p class="note-description">${escapeHtml(note.description)}</p>
                     ${filesHtml}
                 </div>

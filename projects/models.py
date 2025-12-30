@@ -66,6 +66,7 @@ class NoteStatus(models.TextChoices):
     ON_REVIEW = 'on_review', 'На проверке'
     FIXING = 'fixing', 'Исправление'
     DONE = 'done', 'Сдано'
+    PROBLEM = 'problem', 'Проблема'
 
 
 class Note(models.Model):
@@ -75,6 +76,7 @@ class Note(models.Model):
         NoteStatus.ON_REVIEW: '#2196F3',  # Синий
         NoteStatus.FIXING: '#9C27B0',  # Фиолетовый
         NoteStatus.DONE: '#4CAF50',  # Зеленый
+        NoteStatus.PROBLEM: '#E74C3C',  # Красный
     }
     
     project = models.ForeignKey(

@@ -172,8 +172,26 @@
         });
     }
 
+    // Управление состоянием URL
+    function updateURL(siteId, projectId) {
+        const params = new URLSearchParams();
+        if (siteId) params.set('site_id', siteId);
+        if (projectId) params.set('project_id', projectId);
+        const newURL = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        window.history.pushState({siteId, projectId}, '', newURL);
+    }
+
+    // Получить параметры из URL
+    function getURLParams() {
+        const params = new URLSearchParams(window.location.search);
+        return {
+            siteId: params.get('site_id') ? parseInt(params.get('site_id')) : null,
+            projectId: params.get('project_id') ? parseInt(params.get('project_id')) : null
+        };
+    }
+
     // Показать проекты выбранного участка
-    function showSiteProjects(siteId) {
+    function showSiteProjects(siteId, updateUrl = true) {
         const filteredProjects = projectsData.filter(p => p.construction_site_id === siteId);
         const projectsCards = document.getElementById('projectsCards');
         const buildingSitesView = document.getElementById('buildingSitesView');
@@ -224,6 +242,12 @@
         buildingSitesView.style.display = 'none';
         projectsView.style.display = 'block';
         backButton.style.display = 'block';
+
+        // Обновить URL
+        if (updateUrl) {
+            const params = getURLParams();
+            updateURL(siteId, params.projectId);
+        }
     }
 
     // Вернуться к списку участков
@@ -243,6 +267,9 @@
         // Скрыть детали проекта
         document.querySelector('.project-details-placeholder').style.display = 'block';
         document.querySelector('.project-details-content').style.display = 'none';
+
+        // Обновить URL
+        updateURL(null, null);
     }
 
     // Проверка мобильного устройства
@@ -251,7 +278,7 @@
     }
 
     // Обработка выбора проекта
-    function selectProject(projectId) {
+    function selectProject(projectId, updateUrl = true) {
         const project = projectsData.find(p => p.id === projectId);
         if (!project) return;
 
@@ -296,6 +323,12 @@
                 backToProjectsButton.style.display = 'block';
             }
         }
+
+        // Обновить URL
+        if (updateUrl) {
+            const params = getURLParams();
+            updateURL(params.siteId || project.construction_site_id, projectId);
+        }
     }
 
     // Вернуться к списку проектов (для мобильных)
@@ -317,10 +350,37 @@
                 card.classList.remove('selected');
             });
         }
+        // Обновить URL (убрать project_id, оставить site_id)
+        const params = getURLParams();
+        updateURL(params.siteId, null);
+    }
+
+    // Восстановление состояния из URL
+    function restoreState() {
+        const params = getURLParams();
+        
+        if (params.siteId) {
+            // Показать проекты выбранного участка
+            showSiteProjects(params.siteId, false);
+            
+            if (params.projectId) {
+                // Выбрать проект
+                setTimeout(() => {
+                    selectProject(params.projectId, false);
+                    // Обновить URL после восстановления
+                    updateURL(params.siteId, params.projectId);
+                }, 100);
+            } else {
+                updateURL(params.siteId, null);
+            }
+        }
     }
 
     // Инициализация обработчиков
     document.addEventListener('DOMContentLoaded', function() {
+        // Восстановить состояние из URL
+        restoreState();
+
         // Обработчики клика на карточки участков
         document.querySelectorAll('.building-site-card').forEach(card => {
             addCardHandler(card, function() {
@@ -358,6 +418,11 @@
                     backToProjectsButton.style.display = 'none';
                 }
             }
+        });
+
+        // Обработка кнопок браузера "назад/вперед"
+        window.addEventListener('popstate', function(event) {
+            restoreState();
         });
     });
 </script>

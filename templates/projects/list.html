@@ -6,35 +6,32 @@
 {% block content %}
 <div class="projects-container">
     <div class="projects-list">
-        {% if projects %}
-        <div class="projects-cards">
-            {% for project in projects %}
-            <div class="project-card" data-project-id="{{ project.id }}">
-                <div class="project-card-content">
-                    <span class="project-code">{{ project.code }}</span>
-                    <span class="project-separator">|</span>
-                    <span class="project-status">
-                        {% with status_color=project.status.color|default:"#999999" %}
-                            {% if status_color == "#FFFFFF" or status_color == "#ffffff" or status_color == "white" or not status_color %}
-                                <span class="status-badge" style="background-color: #667eea !important;">
-                                    {{ project.status.name }}
-                                </span>
-                            {% else %}
-                                <span class="status-badge" style="background-color: {{ status_color }} !important;">
-                                    {{ project.status.name }}
-                                </span>
-                            {% endif %}
-                        {% endwith %}
-                    </span>
-                    <span class="project-separator">|</span>
-                    <span class="project-percent">{{ project.completion_percent }}%</span>
+        <!-- Блок списка участков (видим по умолчанию) -->
+        <div id="buildingSitesView" class="building-sites-view">
+            {% if building_sites %}
+            <div class="building-sites-cards">
+                {% for site in building_sites %}
+                <div class="building-site-card" data-site-id="{{ site.id }}">
+                    <div class="building-site-card-content">
+                        <span class="building-site-name">{{ site.name }}</span>
+                    </div>
                 </div>
+                {% endfor %}
             </div>
-            {% endfor %}
+            {% else %}
+            <p class="no-sites">Строительные участки не найдены.</p>
+            {% endif %}
         </div>
-        {% else %}
-        <p class="no-projects">Проекты не найдены.</p>
-        {% endif %}
+
+        <!-- Блок списка проектов (скрыт по умолчанию) -->
+        <div id="projectsView" class="projects-view" style="display: none;">
+            <!-- Кнопка назад -->
+            <button id="backButton" class="back-button" style="display: none;">← Назад</button>
+            
+            <div class="projects-cards" id="projectsCards">
+                <!-- Проекты будут отображаться здесь через JavaScript -->
+            </div>
+        </div>
     </div>
     
     <div class="project-details" id="projectDetails">
@@ -42,6 +39,7 @@
             <p>Выберите проект для просмотра деталей</p>
         </div>
         <div class="project-details-content" style="display: none;">
+            <button id="backToProjectsButton" class="back-to-projects-button" style="display: none;">← Назад к проектам</button>
             <div class="project-details-header">
                 <div class="detail-item">
                     <span class="detail-label">КОД:</span>
@@ -77,7 +75,17 @@
 </div>
 
 <script>
-    // Передача данных проектов в JavaScript
+    // Данные участков
+    const buildingSitesData = [
+        {% for site in building_sites %}
+        {
+            id: {{ site.id }},
+            name: "{{ site.name|escapejs }}"
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    // Данные проектов
     const projectsData = [
         {% for project in projects %}
         {
@@ -85,6 +93,7 @@
             code: "{{ project.code|escapejs }}",
             name: "{{ project.name|escapejs }}",
             completion_percent: {{ project.completion_percent }},
+            construction_site_id: {{ project.construction_site.id }},
             status: {
                 name: "{{ project.status.name|escapejs }}",
                 color: "{{ project.status.color|escapejs }}"
@@ -94,9 +103,155 @@
         {% endfor %}
     ];
 
+    // Обработчик клика/тапа для карточек
+    function addCardHandler(card, handler) {
+        let touchStartTime = 0;
+        let touchStartPos = null;
+        let touchHandled = false;
+        
+        // Обработка touch-событий для мобильных
+        card.addEventListener('touchstart', function(e) {
+            touchHandled = false;
+            touchStartTime = Date.now();
+            if (e.touches && e.touches.length > 0) {
+                const touch = e.touches[0];
+                touchStartPos = { x: touch.clientX, y: touch.clientY };
+            }
+        }, { passive: true });
+        
+        card.addEventListener('touchmove', function(e) {
+            // Если движение слишком большое, это не тап
+            if (touchStartPos && e.touches && e.touches.length > 0) {
+                const touch = e.touches[0];
+                const distance = Math.sqrt(
+                    Math.pow(touch.clientX - touchStartPos.x, 2) + 
+                    Math.pow(touch.clientY - touchStartPos.y, 2)
+                );
+                if (distance > 15) {
+                    touchStartPos = null; // Отменяем тап
+                }
+            }
+        }, { passive: true });
+        
+        card.addEventListener('touchend', function(e) {
+            if (!touchStartPos || touchHandled) {
+                touchStartPos = null;
+                return;
+            }
+            
+            const touch = e.changedTouches[0];
+            if (!touch) {
+                touchStartPos = null;
+                return;
+            }
+            
+            const touchEndPos = { x: touch.clientX, y: touch.clientY };
+            const timeDiff = Date.now() - touchStartTime;
+            const distance = Math.sqrt(
+                Math.pow(touchEndPos.x - touchStartPos.x, 2) + 
+                Math.pow(touchEndPos.y - touchStartPos.y, 2)
+            );
+            
+            // Если тап быстрый и короткий (не свайп)
+            if (timeDiff < 500 && distance < 20) {
+                e.preventDefault();
+                e.stopPropagation();
+                touchHandled = true;
+                handler.call(this, e);
+            }
+            
+            touchStartPos = null;
+        });
+        
+        // Обработка клика для десктопа (только если не было touch)
+        card.addEventListener('click', function(e) {
+            if (!touchHandled) {
+                handler.call(this, e);
+            }
+            touchHandled = false;
+        });
+    }
+
+    // Показать проекты выбранного участка
+    function showSiteProjects(siteId) {
+        const filteredProjects = projectsData.filter(p => p.construction_site_id === siteId);
+        const projectsCards = document.getElementById('projectsCards');
+        const buildingSitesView = document.getElementById('buildingSitesView');
+        const projectsView = document.getElementById('projectsView');
+        const backButton = document.getElementById('backButton');
+
+        // Очистить список проектов
+        projectsCards.innerHTML = '';
+
+        if (filteredProjects.length === 0) {
+            projectsCards.innerHTML = '<p class="no-projects">Проекты не найдены.</p>';
+        } else {
+            // Создать карточки проектов
+            filteredProjects.forEach(project => {
+                const card = document.createElement('div');
+                card.className = 'project-card';
+                card.setAttribute('data-project-id', project.id);
+                
+                const statusColor = (project.status.color === '#FFFFFF' || 
+                                   project.status.color === '#ffffff' || 
+                                   project.status.color === 'white' || 
+                                   !project.status.color) ? '#667eea' : project.status.color;
+                
+                card.innerHTML = `
+                    <div class="project-card-content">
+                        <span class="project-code">${project.code}</span>
+                        <span class="project-separator">|</span>
+                        <span class="project-status">
+                            <span class="status-badge" style="background-color: ${statusColor} !important;">
+                                ${project.status.name}
+                            </span>
+                        </span>
+                        <span class="project-separator">|</span>
+                        <span class="project-percent">${project.completion_percent}%</span>
+                    </div>
+                `;
+                
+                // Добавляем обработчик через функцию для поддержки touch
+                addCardHandler(card, function() {
+                    selectProject(project.id);
+                });
+                
+                projectsCards.appendChild(card);
+            });
+        }
+
+        // Переключить виды
+        buildingSitesView.style.display = 'none';
+        projectsView.style.display = 'block';
+        backButton.style.display = 'block';
+    }
+
+    // Вернуться к списку участков
+    function showBuildingSites() {
+        const buildingSitesView = document.getElementById('buildingSitesView');
+        const projectsView = document.getElementById('projectsView');
+        const backButton = document.getElementById('backButton');
+        const backToProjectsButton = document.getElementById('backToProjectsButton');
+
+        buildingSitesView.style.display = 'block';
+        projectsView.style.display = 'none';
+        backButton.style.display = 'none';
+        if (backToProjectsButton) {
+            backToProjectsButton.style.display = 'none';
+        }
+
+        // Скрыть детали проекта
+        document.querySelector('.project-details-placeholder').style.display = 'block';
+        document.querySelector('.project-details-content').style.display = 'none';
+    }
+
+    // Проверка мобильного устройства
+    function isMobile() {
+        return window.innerWidth <= 768;
+    }
+
     // Обработка выбора проекта
     function selectProject(projectId) {
-        // Найти проект в данных
         const project = projectsData.find(p => p.id === projectId);
         if (!project) return;
 
@@ -115,25 +270,97 @@
         document.getElementById('detailCode').textContent = project.code;
         document.getElementById('detailName').textContent = project.name;
         document.getElementById('detailPercent').textContent = project.completion_percent + '%';
+        
+        const statusColor = (project.status.color === '#FFFFFF' || 
+                           project.status.color === '#ffffff' || 
+                           project.status.color === 'white' || 
+                           !project.status.color) ? '#667eea' : project.status.color;
+        
         document.getElementById('detailStatus').innerHTML = 
-            '<span class="status-badge" style="background-color: ' + project.status.color + ';">' + 
+            '<span class="status-badge" style="background-color: ' + statusColor + ';">' + 
             project.status.name + '</span>';
         document.getElementById('detailNote').textContent = project.note || '—';
 
         // Показать детали, скрыть placeholder
         document.querySelector('.project-details-placeholder').style.display = 'none';
         document.querySelector('.project-details-content').style.display = 'block';
+
+        // На мобильных: скрыть весь блок списка проектов, показать кнопку "назад"
+        if (isMobile()) {
+            const projectsList = document.querySelector('.projects-list');
+            const backToProjectsButton = document.getElementById('backToProjectsButton');
+            if (projectsList) {
+                projectsList.style.display = 'none';
+            }
+            if (backToProjectsButton) {
+                backToProjectsButton.style.display = 'block';
+            }
+        }
     }
 
-    // Добавить обработчики клика на карточки проектов
-    document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.project-card').forEach(card => {
-            card.addEventListener('click', function() {
-                const projectId = parseInt(this.getAttribute('data-project-id'));
-                selectProject(projectId);
+    // Вернуться к списку проектов (для мобильных)
+    function backToProjects() {
+        const projectsList = document.querySelector('.projects-list');
+        const backToProjectsButton = document.getElementById('backToProjectsButton');
+        if (projectsList) {
+            projectsList.style.display = 'flex';
+        }
+        if (backToProjectsButton) {
+            backToProjectsButton.style.display = 'none';
+        }
+        // На мобильных скрываем детали при возврате к списку
+        if (isMobile()) {
+            document.querySelector('.project-details-placeholder').style.display = 'block';
+            document.querySelector('.project-details-content').style.display = 'none';
+            // Убрать выделение с карточек
+            document.querySelectorAll('.project-card').forEach(card => {
+                card.classList.remove('selected');
             });
+        }
+    }
+
+    // Инициализация обработчиков
+    document.addEventListener('DOMContentLoaded', function() {
+        // Обработчики клика на карточки участков
+        document.querySelectorAll('.building-site-card').forEach(card => {
+            addCardHandler(card, function() {
+                const siteId = parseInt(this.getAttribute('data-site-id'));
+                showSiteProjects(siteId);
+            });
+        });
+
+        // Обработчик кнопки "назад"
+        const backButton = document.getElementById('backButton');
+        if (backButton) {
+            addCardHandler(backButton, function() {
+                showBuildingSites();
+            });
+        }
+
+        // Обработчик кнопки "назад к проектам" (для мобильных)
+        const backToProjectsButton = document.getElementById('backToProjectsButton');
+        if (backToProjectsButton) {
+            addCardHandler(backToProjectsButton, function() {
+                backToProjects();
+            });
+        }
+
+        // Обработка изменения размера окна
+        window.addEventListener('resize', function() {
+            if (!isMobile()) {
+                // На десктопе всегда показываем список проектов
+                const projectsList = document.querySelector('.projects-list');
+                const backToProjectsButton = document.getElementById('backToProjectsButton');
+                if (projectsList && projectsList.style.display === 'none') {
+                    projectsList.style.display = 'flex';
+                }
+                if (backToProjectsButton) {
+                    backToProjectsButton.style.display = 'none';
+                }
+            }
         });
     });
 </script>
 {% endblock %}
+
 

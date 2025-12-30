@@ -64,13 +64,64 @@
             </div>
             <div class="project-details-body">
                 <div class="details-left-column">
-                    <!-- Левая колонка 70% -->
+                    <!-- Блок заметок -->
+                    <div class="notes-section">
+                        <div class="notes-header">
+                            <h3>Заметки</h3>
+                            <button id="createNoteBtn" class="btn-create-note">+ Создать заметку</button>
+                        </div>
+                        <div id="notesContainer" class="notes-container">
+                            <!-- Заметки будут загружаться здесь -->
+                        </div>
+                    </div>
                 </div>
                 <div class="details-right-column">
                     <!-- Правая колонка 30% -->
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Модальное окно для создания/редактирования заметки -->
+<div id="noteModal" class="note-modal">
+    <div class="note-modal-content">
+        <div class="note-modal-header">
+            <h3 id="noteModalTitle">Создать заметку</h3>
+            <button class="note-modal-close" id="noteModalClose">&times;</button>
+        </div>
+        <form id="noteForm" class="note-form">
+            <input type="hidden" id="noteId" value="">
+            <input type="hidden" id="noteProjectId" value="">
+            
+            <div class="form-group">
+                <label for="noteTitle">Название</label>
+                <input type="text" id="noteTitle" name="title" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="noteDescription">Описание</label>
+                <textarea id="noteDescription" name="description" rows="4"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="noteStatus">Статус</label>
+                <select id="noteStatus" name="status" required>
+                    <option value="in_work">В работе</option>
+                    <option value="on_review">На проверке</option>
+                    <option value="fixing">Исправление</option>
+                    <option value="done">Сдано</option>
+                </select>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="btn-delete" id="noteModalDelete" style="display: none;">Удалить</button>
+                <div class="form-actions-right">
+                    <button type="button" class="btn-cancel" id="noteModalCancel">Отмена</button>
+                    <button type="submit" class="btn-submit">Сохранить</button>
+                </div>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -329,6 +380,9 @@
             const params = getURLParams();
             updateURL(params.siteId || project.construction_site_id, projectId);
         }
+
+        // Загрузить заметки проекта
+        loadNotes(projectId);
     }
 
     // Вернуться к списку проектов (для мобильных)
@@ -424,6 +478,287 @@
         window.addEventListener('popstate', function(event) {
             restoreState();
         });
+    });
+
+    // ========== Функции для работы с заметками ==========
+    
+    // Статусы заметок с цветами
+    const noteStatuses = {
+        'in_work': { name: 'В работе', color: '#FFC107' },
+        'on_review': { name: 'На проверке', color: '#2196F3' },
+        'fixing': { name: 'Исправление', color: '#9C27B0' },
+        'done': { name: 'Сдано', color: '#4CAF50' }
+    };
+
+    // Загрузить заметки проекта
+    function loadNotes(projectId) {
+        // Сохранить projectId в скрытое поле
+        const projectIdField = document.getElementById('noteProjectId');
+        if (projectIdField) {
+            projectIdField.value = projectId;
+        }
+        
+        fetch(`/projects/notes/${projectId}/`)
+            .then(response => response.json())
+            .then(data => {
+                displayNotes(data.notes);
+            })
+            .catch(error => {
+                console.error('Ошибка загрузки заметок:', error);
+                document.getElementById('notesContainer').innerHTML = '<p class="no-notes">Ошибка загрузки заметок</p>';
+            });
+    }
+
+    // Отобразить заметки
+    function displayNotes(notes) {
+        const container = document.getElementById('notesContainer');
+        
+        if (!notes || notes.length === 0) {
+            container.innerHTML = '<p class="no-notes">Заметок пока нет</p>';
+            return;
+        }
+
+        container.innerHTML = notes.map(note => `
+            <div class="note-card" data-note-id="${note.id}">
+                <div class="note-card-header">
+                    <div class="note-header-info">
+                        <div class="note-header-top">
+                            <span class="note-date">${note.created_at}</span>
+                        </div>
+                        <h4 class="note-title clickable" onclick="editNote(${note.id})" title="Нажмите для редактирования">${escapeHtml(note.title)}</h4>
+                    </div>
+                </div>
+                <div class="note-card-body">
+                    <span class="note-status-badge" style="background-color: ${note.status_color};">
+                        ${escapeHtml(note.status)}
+                    </span>
+                    <p class="note-description">${escapeHtml(note.description)}</p>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Экранирование HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Открыть модальное окно для создания заметки
+    function openCreateNoteModal(projectId) {
+        document.getElementById('noteModalTitle').textContent = 'Создать заметку';
+        document.getElementById('noteId').value = '';
+        document.getElementById('noteProjectId').value = projectId;
+        document.getElementById('noteTitle').value = '';
+        document.getElementById('noteDescription').value = '';
+        document.getElementById('noteStatus').value = 'in_work';
+        document.getElementById('noteModalDelete').style.display = 'none';
+        document.getElementById('noteModal').style.display = 'block';
+    }
+
+    // Открыть модальное окно для редактирования заметки
+    function editNote(noteId) {
+        const noteCard = document.querySelector(`.note-card[data-note-id="${noteId}"]`);
+        if (!noteCard) return;
+
+        const noteTitle = noteCard.querySelector('.note-title').textContent;
+        const noteDescription = noteCard.querySelector('.note-description').textContent;
+        const noteStatusBadge = noteCard.querySelector('.note-status-badge');
+        const statusValue = Object.keys(noteStatuses).find(key => 
+            noteStatuses[key].name === noteStatusBadge.textContent.trim()
+        ) || 'in_work';
+        const projectId = document.getElementById('noteProjectId').value || 
+                         getURLParams().projectId;
+
+        document.getElementById('noteModalTitle').textContent = 'Редактировать заметку';
+        document.getElementById('noteId').value = noteId;
+        document.getElementById('noteProjectId').value = projectId;
+        document.getElementById('noteTitle').value = noteTitle;
+        document.getElementById('noteDescription').value = noteDescription;
+        document.getElementById('noteStatus').value = statusValue;
+        document.getElementById('noteModalDelete').style.display = 'block';
+        document.getElementById('noteModal').style.display = 'block';
+    }
+
+    // Закрыть модальное окно
+    function closeNoteModal() {
+        document.getElementById('noteModal').style.display = 'none';
+    }
+
+    // Создать заметку
+    function createNote(projectId, title, description, status) {
+        fetch('/projects/notes/create/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                project_id: projectId,
+                title: title,
+                description: description,
+                status: status
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeNoteModal();
+                loadNotes(projectId);
+            } else {
+                alert('Ошибка создания заметки: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка создания заметки:', error);
+            alert('Ошибка создания заметки');
+        });
+    }
+
+    // Обновить заметку
+    function updateNote(noteId, title, description, status) {
+        fetch(`/projects/notes/${noteId}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                title: title,
+                description: description,
+                status: status
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeNoteModal();
+                const projectId = document.getElementById('noteProjectId').value || 
+                                 getURLParams().projectId;
+                loadNotes(projectId);
+            } else {
+                alert('Ошибка обновления заметки: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка обновления заметки:', error);
+            alert('Ошибка обновления заметки');
+        });
+    }
+
+    // Удалить заметку
+    function deleteNote(noteId) {
+        if (!confirm('Вы уверены, что хотите удалить эту заметку?')) {
+            return;
+        }
+
+        fetch(`/projects/notes/${noteId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeNoteModal();
+                const projectId = document.getElementById('noteProjectId').value || 
+                                 getURLParams().projectId;
+                loadNotes(projectId);
+            } else {
+                alert('Ошибка удаления заметки: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка удаления заметки:', error);
+            alert('Ошибка удаления заметки');
+        });
+    }
+
+    // Получить CSRF токен из cookies
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Обработчики событий для модального окна
+    document.addEventListener('DOMContentLoaded', function() {
+        const createNoteBtn = document.getElementById('createNoteBtn');
+        const noteModal = document.getElementById('noteModal');
+        const noteModalClose = document.getElementById('noteModalClose');
+        const noteModalCancel = document.getElementById('noteModalCancel');
+        const noteModalDelete = document.getElementById('noteModalDelete');
+        const noteForm = document.getElementById('noteForm');
+
+        // Открыть модальное окно для создания
+        if (createNoteBtn) {
+            createNoteBtn.addEventListener('click', function() {
+                const projectId = getURLParams().projectId;
+                if (projectId) {
+                    openCreateNoteModal(projectId);
+                } else {
+                    alert('Выберите проект для создания заметки');
+                }
+            });
+        }
+
+        // Закрыть модальное окно
+        if (noteModalClose) {
+            noteModalClose.addEventListener('click', closeNoteModal);
+        }
+        if (noteModalCancel) {
+            noteModalCancel.addEventListener('click', closeNoteModal);
+        }
+
+        // Обработчик кнопки удаления
+        if (noteModalDelete) {
+            noteModalDelete.addEventListener('click', function() {
+                const noteId = document.getElementById('noteId').value;
+                if (noteId) {
+                    deleteNote(noteId);
+                }
+            });
+        }
+
+        // Закрыть при клике вне модального окна
+        if (noteModal) {
+            noteModal.addEventListener('click', function(e) {
+                if (e.target === noteModal) {
+                    closeNoteModal();
+                }
+            });
+        }
+
+        // Обработка формы
+        if (noteForm) {
+            noteForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const noteId = document.getElementById('noteId').value;
+                const projectId = document.getElementById('noteProjectId').value;
+                const title = document.getElementById('noteTitle').value;
+                const description = document.getElementById('noteDescription').value;
+                const status = document.getElementById('noteStatus').value;
+
+                if (noteId) {
+                    updateNote(noteId, title, description, status);
+                } else {
+                    createNote(projectId, title, description, status);
+                }
+            });
+        }
     });
 </script>
 {% endblock %}

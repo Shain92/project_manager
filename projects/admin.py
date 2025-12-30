@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Project, ProjectStatus
+from .models import Project, ProjectStatus, Note
 
 
 @admin.register(ProjectStatus)
@@ -29,6 +29,23 @@ class ProjectAdmin(admin.ModelAdmin):
         }),
         ('Дополнительно', {
             'fields': ('note',)
+        }),
+        ('Временные метки', {
+            'fields': ('created_at', 'updated_at')
+        }),
+    )
+
+
+@admin.register(Note)
+class NoteAdmin(admin.ModelAdmin):
+    """Админка для заметок"""
+    list_display = ['title', 'project', 'author', 'status', 'created_at']
+    list_filter = ['status', 'created_at', 'project']
+    search_fields = ['title', 'description']
+    readonly_fields = ['created_at', 'updated_at']
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('project', 'author', 'title', 'description', 'status')
         }),
         ('Временные метки', {
             'fields': ('created_at', 'updated_at')

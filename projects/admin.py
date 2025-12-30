@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Project, ProjectStatus, Note
+from .models import Project, ProjectStatus, Note, NoteFile
 
 
 @admin.register(ProjectStatus)
@@ -49,5 +49,22 @@ class NoteAdmin(admin.ModelAdmin):
         }),
         ('Временные метки', {
             'fields': ('created_at', 'updated_at')
+        }),
+    )
+
+
+@admin.register(NoteFile)
+class NoteFileAdmin(admin.ModelAdmin):
+    """Админка для файлов заметок"""
+    list_display = ['original_name', 'note', 'uploaded_by', 'file_size', 'uploaded_at']
+    list_filter = ['uploaded_at', 'note']
+    search_fields = ['original_name', 'note__title']
+    readonly_fields = ['uploaded_at', 'file_size']
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('note', 'file', 'original_name', 'uploaded_by')
+        }),
+        ('Дополнительно', {
+            'fields': ('file_size', 'uploaded_at')
         }),
     )

@@ -114,6 +114,12 @@
                 </select>
             </div>
             
+            <div class="form-group">
+                <label for="noteFiles">Файлы</label>
+                <input type="file" id="noteFiles" name="files" multiple>
+                <div id="noteFilesList" class="note-files-list"></div>
+            </div>
+            
             <div class="form-actions">
                 <button type="button" class="btn-delete" id="noteModalDelete" style="display: none;">Удалить</button>
                 <div class="form-actions-right">
@@ -518,7 +524,20 @@
             return;
         }
 
-        container.innerHTML = notes.map(note => `
+        container.innerHTML = notes.map(note => {
+            const filesHtml = note.files && note.files.length > 0 
+                ? `<div class="note-files">
+                    ${note.files.map(file => `
+                        <div class="note-file-item">
+                            <span class="note-file-name">${escapeHtml(file.original_name)}</span>
+                            <span class="note-file-size">${escapeHtml(file.file_size_display)}</span>
+                            <button class="note-file-download" onclick="downloadFile(${file.id})" title="Скачать">↓</button>
+                        </div>
+                    `).join('')}
+                </div>`
+                : '';
+            
+            return `
             <div class="note-card" data-note-id="${note.id}">
                 <div class="note-card-header">
                     <div class="note-header-info">
@@ -533,9 +552,11 @@
                         ${escapeHtml(note.status)}
                     </span>
                     <p class="note-description">${escapeHtml(note.description)}</p>
+                    ${filesHtml}
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     // Экранирование HTML
@@ -553,6 +574,8 @@
         document.getElementById('noteTitle').value = '';
         document.getElementById('noteDescription').value = '';
         document.getElementById('noteStatus').value = 'in_work';
+        document.getElementById('noteFiles').value = '';
+        document.getElementById('noteFilesList').innerHTML = '';
         document.getElementById('noteModalDelete').style.display = 'none';
         document.getElementById('noteModal').style.display = 'block';
     }
@@ -571,14 +594,47 @@
         const projectId = document.getElementById('noteProjectId').value || 
                          getURLParams().projectId;
 
+        // Загрузить данные заметки для получения файлов
+        const params = getURLParams();
+        fetch(`/projects/notes/${params.projectId}/`)
+            .then(response => response.json())
+            .then(data => {
+                const note = data.notes.find(n => n.id === noteId);
+                if (note) {
+                    displayNoteFiles(note.files || []);
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка загрузки файлов:', error);
+                displayNoteFiles([]);
+            });
+
         document.getElementById('noteModalTitle').textContent = 'Редактировать заметку';
         document.getElementById('noteId').value = noteId;
         document.getElementById('noteProjectId').value = projectId;
         document.getElementById('noteTitle').value = noteTitle;
         document.getElementById('noteDescription').value = noteDescription;
         document.getElementById('noteStatus').value = statusValue;
+        document.getElementById('noteFiles').value = '';
         document.getElementById('noteModalDelete').style.display = 'block';
         document.getElementById('noteModal').style.display = 'block';
+    }
+    
+    // Отобразить список файлов в модальном окне
+    function displayNoteFiles(files) {
+        const filesList = document.getElementById('noteFilesList');
+        if (!files || files.length === 0) {
+            filesList.innerHTML = '';
+            return;
+        }
+        
+        filesList.innerHTML = files.map(file => `
+            <div class="note-file-item-modal" data-file-id="${file.id}">
+                <span class="note-file-name">${escapeHtml(file.original_name)}</span>
+                <span class="note-file-size">${escapeHtml(file.file_size_display)}</span>
+                <button class="note-file-delete" onclick="deleteFileFromNote(${file.id})" title="Удалить">×</button>
+            </div>
+        `).join('');
     }
 
     // Закрыть модальное окно
@@ -604,8 +660,18 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                closeNoteModal();
-                loadNotes(projectId);
+                const noteId = data.note.id;
+                // Загрузить файлы, если они есть
+                const fileInput = document.getElementById('noteFiles');
+                if (fileInput.files.length > 0) {
+                    uploadFilesToNote(noteId, fileInput.files, () => {
+                        closeNoteModal();
+                        loadNotes(projectId);
+                    });
+                } else {
+                    closeNoteModal();
+                    loadNotes(projectId);
+                }
             } else {
                 alert('Ошибка создания заметки: ' + (data.error || 'Неизвестная ошибка'));
             }
@@ -633,10 +699,19 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                closeNoteModal();
                 const projectId = document.getElementById('noteProjectId').value || 
                                  getURLParams().projectId;
-                loadNotes(projectId);
+                // Загрузить файлы, если они есть
+                const fileInput = document.getElementById('noteFiles');
+                if (fileInput.files.length > 0) {
+                    uploadFilesToNote(noteId, fileInput.files, () => {
+                        closeNoteModal();
+                        loadNotes(projectId);
+                    });
+                } else {
+                    closeNoteModal();
+                    loadNotes(projectId);
+                }
             } else {
                 alert('Ошибка обновления заметки: ' + (data.error || 'Неизвестная ошибка'));
             }
@@ -677,6 +752,80 @@
         });
     }
 
+    // Загрузить файлы к заметке
+    function uploadFilesToNote(noteId, files, callback) {
+        const promises = [];
+        for (let i = 0; i < files.length; i++) {
+            const formData = new FormData();
+            formData.append('file', files[i]);
+            
+            promises.push(
+                fetch(`/projects/notes/${noteId}/files/upload/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: formData
+                })
+            );
+        }
+        
+        Promise.all(promises)
+            .then(responses => Promise.all(responses.map(r => r.json())))
+            .then(results => {
+                const errors = results.filter(r => !r.success);
+                if (errors.length > 0) {
+                    alert('Ошибка загрузки некоторых файлов');
+                }
+                if (callback) callback();
+            })
+            .catch(error => {
+                console.error('Ошибка загрузки файлов:', error);
+                alert('Ошибка загрузки файлов');
+                if (callback) callback();
+            });
+    }
+    
+    // Удалить файл из заметки
+    function deleteFileFromNote(fileId) {
+        if (!confirm('Вы уверены, что хотите удалить этот файл?')) {
+            return;
+        }
+        
+        fetch(`/projects/files/${fileId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Удалить элемент из списка
+                const fileItem = document.querySelector(`.note-file-item-modal[data-file-id="${fileId}"]`);
+                if (fileItem) {
+                    fileItem.remove();
+                }
+                // Обновить список заметок
+                const projectId = document.getElementById('noteProjectId').value || 
+                                 getURLParams().projectId;
+                loadNotes(projectId);
+            } else {
+                alert('Ошибка удаления файла: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка удаления файла:', error);
+            alert('Ошибка удаления файла');
+        });
+    }
+    
+    // Скачать файл
+    function downloadFile(fileId) {
+        window.location.href = `/projects/files/${fileId}/download/`;
+    }
+    
     // Получить CSRF токен из cookies
     function getCookie(name) {
         let cookieValue = null;

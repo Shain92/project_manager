@@ -120,6 +120,14 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Media files (User uploaded files)
+MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = '/media/'
+
+# File upload settings
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
+
 # Custom User Model
 AUTH_USER_MODEL = 'users.User'
 

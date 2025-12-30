@@ -1031,5 +1031,66 @@
             flex: 1;
         }
     }
+    /* Стили для файлов заметок */
+    .note-files {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #e0e0e0;
+    }
+    .note-file-item,
+    .note-file-item-modal {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        margin: 4px 0;
+        background: #f5f5f5;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+    .note-file-name {
+        flex: 1;
+        color: #333;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .note-file-size {
+        color: #666;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+    .note-file-download,
+    .note-file-delete {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px 8px;
+        color: #667eea;
+        font-size: 16px;
+        line-height: 1;
+        transition: color 0.2s;
+    }
+    .note-file-download:hover {
+        color: #5568d3;
+    }
+    .note-file-delete {
+        color: #e74c3c;
+    }
+    .note-file-delete:hover {
+        color: #c0392b;
+    }
+    .note-files-list {
+        margin-top: 8px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    #noteFiles {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
 </style>
 

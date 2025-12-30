@@ -22,6 +22,12 @@ class LoginRequiredMiddleware:
         if not request.user.is_authenticated and not is_exempt:
             return redirect('users:login')
         
+        # Ограничение доступа для гостей (только главная страница)
+        # Суперпользователи имеют доступ ко всем страницам
+        if request.user.is_authenticated and not request.user.is_superuser and hasattr(request.user, 'is_guest'):
+            if request.user.is_guest() and not is_exempt and request.path != '/':
+                return redirect('users:home')
+        
         response = self.get_response(request)
         return response
 

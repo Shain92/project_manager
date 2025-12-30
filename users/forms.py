@@ -35,5 +35,13 @@ class RegisterForm(UserCreationForm):
         self.fields['password2'].widget.attrs.update({'class': 'form-control'})
         self.fields['password1'].label = 'Пароль'
         self.fields['password2'].label = 'Подтверждение пароля'
+    
+    def save(self, commit=True):
+        """Сохранение пользователя с установкой типа 'Гость'"""
+        user = super().save(commit=False)
+        user.user_type = 'Гость'
+        if commit:
+            user.save()
+        return user
 
 

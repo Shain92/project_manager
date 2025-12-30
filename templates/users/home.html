@@ -4,9 +4,16 @@
 
 {% block content %}
 <h1>Добро пожаловать, {{ user.username }}!</h1>
+
+{% if user.is_guest %}
+<div class="alert alert-warning" role="alert">
+    <strong>Обратитесь к администратору для доступа к ресурсу</strong>
+</div>
+{% else %}
 <p>Вы успешно вошли в систему.</p>
 <p>Email: {{ user.email|default:"Не указан" }}</p>
 <p>Дата регистрации: {{ user.date_joined|date:"d.m.Y H:i" }}</p>
+{% endif %}
 {% endblock %}
 
 

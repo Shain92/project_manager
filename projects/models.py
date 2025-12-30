@@ -217,6 +217,7 @@ class Requirement(models.Model):
     )
     title = models.CharField(max_length=200, verbose_name='Название')
     for_whom = models.CharField(max_length=200, verbose_name='Для')
+    is_closed = models.BooleanField(default=False, verbose_name='Закрыта')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлен')
 

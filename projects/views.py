@@ -244,13 +244,16 @@ def get_requirements(request, project_id):
                 'file_size': file_obj.file_size,
                 'file_size_display': file_obj.get_file_size_display(),
                 'uploaded_at': file_obj.uploaded_at.strftime('%d.%m.%Y %H:%M'),
+                'uploaded_by': file_obj.uploaded_by.username,
             })
         
         requirements_data.append({
             'id': requirement.id,
             'title': requirement.title,
             'for_whom': requirement.for_whom,
+            'is_closed': requirement.is_closed,
             'initiator': requirement.initiator.username,
+            'initiator_id': requirement.initiator.id,
             'created_at': requirement.created_at.strftime('%d.%m.%Y %H:%M'),
             'updated_at': requirement.updated_at.strftime('%d.%m.%Y %H:%M'),
             'files': files_data,
@@ -281,7 +284,9 @@ def create_requirement(request):
                 'id': requirement.id,
                 'title': requirement.title,
                 'for_whom': requirement.for_whom,
+                'is_closed': requirement.is_closed,
                 'initiator': requirement.initiator.username,
+                'initiator_id': requirement.initiator.id,
                 'created_at': requirement.created_at.strftime('%d.%m.%Y %H:%M'),
                 'updated_at': requirement.updated_at.strftime('%d.%m.%Y %H:%M'),
             }
@@ -303,6 +308,10 @@ def update_requirement(request, requirement_id):
             requirement.title = data['title']
         if 'for_whom' in data:
             requirement.for_whom = data['for_whom']
+        if 'is_closed' in data:
+            # Только инициатор может закрывать/открывать потребность
+            if requirement.initiator.id == request.user.id:
+                requirement.is_closed = data['is_closed']
         
         requirement.save()
         
@@ -312,7 +321,9 @@ def update_requirement(request, requirement_id):
                 'id': requirement.id,
                 'title': requirement.title,
                 'for_whom': requirement.for_whom,
+                'is_closed': requirement.is_closed,
                 'initiator': requirement.initiator.username,
+                'initiator_id': requirement.initiator.id,
                 'created_at': requirement.created_at.strftime('%d.%m.%Y %H:%M'),
                 'updated_at': requirement.updated_at.strftime('%d.%m.%Y %H:%M'),
             }
@@ -369,6 +380,7 @@ def upload_requirement_file(request, requirement_id):
                 'file_size': requirement_file.file_size,
                 'file_size_display': requirement_file.get_file_size_display(),
                 'uploaded_at': requirement_file.uploaded_at.strftime('%d.%m.%Y %H:%M'),
+                'uploaded_by': requirement_file.uploaded_by.username,
             }
         })
     except Exception as e:

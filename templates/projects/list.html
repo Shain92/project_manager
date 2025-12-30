@@ -113,6 +113,19 @@
                 <input type="text" id="requirementForWhom" name="for_whom" required>
             </div>
             
+            <div class="form-group" id="requirementInitiatorGroup" style="display: none;">
+                <label>Инициатор</label>
+                <p id="requirementInitiatorName" style="margin: 0; padding: 8px; background: #f5f5f5; border-radius: 4px;"></p>
+            </div>
+            
+            <div class="form-group" id="requirementIsClosedGroup" style="display: none;">
+                <label class="requirement-closed-checkbox-label">
+                    <input type="checkbox" id="requirementIsClosed" name="is_closed" class="requirement-closed-checkbox">
+                    <span class="requirement-closed-checkbox-custom"></span>
+                    <span class="requirement-closed-checkbox-text">Закрыть потребность</span>
+                </label>
+            </div>
+            
             <div class="form-group">
                 <label for="requirementFiles">Файлы</label>
                 <input type="file" id="requirementFiles" name="files" multiple>
@@ -179,6 +192,9 @@
 </div>
 
 <script>
+    // ID текущего пользователя
+    const currentUserId = {{ request.user.id|default:0 }};
+    
     // Данные участков
     const buildingSitesData = [
         {% for site in building_sites %}
@@ -995,16 +1011,22 @@
                 ? `<div class="requirement-files">
                     ${requirement.files.map(file => `
                         <div class="requirement-file-item">
-                            <span class="requirement-file-name">${escapeHtml(file.original_name)}</span>
-                            <span class="requirement-file-size">${escapeHtml(file.file_size_display)}</span>
+                            <div class="requirement-file-info">
+                                <span class="requirement-file-name">${escapeHtml(file.original_name)}</span>
+                                <span class="requirement-file-meta">
+                                    <span class="requirement-file-size">${escapeHtml(file.file_size_display)}</span>
+                                    ${file.uploaded_by ? `<span class="requirement-file-uploader">• Загрузил: ${escapeHtml(file.uploaded_by)}</span>` : ''}
+                                </span>
+                            </div>
                             <button class="requirement-file-download" onclick="downloadRequirementFile(${file.id})" title="Скачать">↓</button>
                         </div>
                     `).join('')}
                 </div>`
                 : '';
             
+            const cardClass = requirement.is_closed ? 'requirement-card is-closed' : 'requirement-card is-open';
             return `
-            <div class="requirement-card" data-requirement-id="${requirement.id}">
+            <div class="${cardClass}" data-requirement-id="${requirement.id}" data-initiator-id="${requirement.initiator_id}">
                 <div class="requirement-card-header">
                     <div class="requirement-header-info">
                         <div class="requirement-header-top">
@@ -1031,7 +1053,10 @@
         document.getElementById('requirementForWhom').value = '';
         document.getElementById('requirementFiles').value = '';
         document.getElementById('requirementFilesList').innerHTML = '';
+        document.getElementById('requirementIsClosed').checked = false;
         document.getElementById('requirementModalDelete').style.display = 'none';
+        document.getElementById('requirementInitiatorGroup').style.display = 'none';
+        document.getElementById('requirementIsClosedGroup').style.display = 'none';
         document.getElementById('requirementModal').style.display = 'block';
     }
 
@@ -1045,7 +1070,7 @@
         const projectId = document.getElementById('requirementProjectId').value || 
                          getURLParams().projectId;
 
-        // Загрузить данные потребности для получения файлов
+        // Загрузить данные потребности для получения файлов и статуса
         const params = getURLParams();
         fetch(`/projects/requirements/${params.projectId}/`)
             .then(response => response.json())
@@ -1053,6 +1078,18 @@
                 const requirement = data.requirements.find(r => r.id === requirementId);
                 if (requirement) {
                     displayRequirementFiles(requirement.files || []);
+                    
+                    // Показать автора
+                    document.getElementById('requirementInitiatorName').textContent = requirement.initiator;
+                    document.getElementById('requirementInitiatorGroup').style.display = 'block';
+                    
+                    // Показать галочку закрытия только для инициатора
+                    if (requirement.initiator_id === currentUserId) {
+                        document.getElementById('requirementIsClosed').checked = requirement.is_closed;
+                        document.getElementById('requirementIsClosedGroup').style.display = 'block';
+                    } else {
+                        document.getElementById('requirementIsClosedGroup').style.display = 'none';
+                    }
                 }
             })
             .catch(error => {
@@ -1080,8 +1117,13 @@
         
         filesList.innerHTML = files.map(file => `
             <div class="requirement-file-item-modal" data-file-id="${file.id}">
-                <span class="requirement-file-name">${escapeHtml(file.original_name)}</span>
-                <span class="requirement-file-size">${escapeHtml(file.file_size_display)}</span>
+                <div class="requirement-file-info-modal">
+                    <span class="requirement-file-name">${escapeHtml(file.original_name)}</span>
+                    <span class="requirement-file-meta-modal">
+                        <span class="requirement-file-size">${escapeHtml(file.file_size_display)}</span>
+                        ${file.uploaded_by ? `<span class="requirement-file-uploader">• Загрузил: ${escapeHtml(file.uploaded_by)}</span>` : ''}
+                    </span>
+                </div>
                 <button class="requirement-file-delete" onclick="deleteRequirementFileFromRequirement(${file.id})" title="Удалить">×</button>
             </div>
         `).join('');
@@ -1133,16 +1175,26 @@
 
     // Обновить потребность
     function updateRequirement(requirementId, title, forWhom) {
+        const isClosedElement = document.getElementById('requirementIsClosed');
+        const isClosed = isClosedElement && isClosedElement.style.display !== 'none' ? isClosedElement.checked : undefined;
+        
+        const bodyData = {
+            title: title,
+            for_whom: forWhom
+        };
+        
+        // Добавляем is_closed только если галочка видна (инициатор)
+        if (isClosed !== undefined) {
+            bodyData.is_closed = isClosed;
+        }
+        
         fetch(`/projects/requirements/${requirementId}/update/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
             },
-            body: JSON.stringify({
-                title: title,
-                for_whom: forWhom
-            })
+            body: JSON.stringify(bodyData)
         })
         .then(response => response.json())
         .then(data => {

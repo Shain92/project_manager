@@ -1152,7 +1152,7 @@
         border-radius: 8px;
         padding: 15px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        transition: box-shadow 0.3s;
+        transition: box-shadow 0.3s, border-color 0.3s;
         max-width: 100%;
         min-width: 0;
         overflow: hidden;
@@ -1160,6 +1160,14 @@
         word-break: break-word;
         overflow-wrap: break-word;
         box-sizing: border-box;
+    }
+    .requirement-card.is-open {
+        border-left: 4px solid #e74c3c;
+        background: #fff5f5;
+    }
+    .requirement-card.is-closed {
+        border-left: 4px solid #4CAF50;
+        background: #f5fff5;
     }
     .requirement-card:hover {
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -1296,22 +1304,43 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 6px 8px;
+        padding: 8px 12px;
         margin: 4px 0;
         background: #f5f5f5;
         border-radius: 4px;
         font-size: 13px;
     }
-    .requirement-file-name {
+    .requirement-file-info,
+    .requirement-file-info-modal {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
         flex: 1;
+        min-width: 0;
+    }
+    .requirement-file-name {
         color: #333;
+        font-weight: 500;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
+    .requirement-file-meta,
+    .requirement-file-meta-modal {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        font-size: 11px;
+        color: #666;
+    }
     .requirement-file-size {
         color: #666;
-        font-size: 12px;
+        white-space: nowrap;
+    }
+    .requirement-file-uploader {
+        color: #667eea;
+        font-weight: 500;
         white-space: nowrap;
     }
     .requirement-file-download,
@@ -1345,6 +1374,69 @@
         border: 1px solid #ddd;
         border-radius: 4px;
         font-size: 14px;
+    }
+    /* Стили для галочки закрытия потребности */
+    .requirement-closed-checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        padding: 12px 16px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        user-select: none;
+    }
+    .requirement-closed-checkbox-label:hover {
+        background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+        border-color: #4CAF50;
+        box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+    }
+    .requirement-closed-checkbox {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .requirement-closed-checkbox-custom {
+        position: relative;
+        width: 24px;
+        height: 24px;
+        min-width: 24px;
+        min-height: 24px;
+        border: 2px solid #6c757d;
+        border-radius: 6px;
+        background: white;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .requirement-closed-checkbox:checked + .requirement-closed-checkbox-custom {
+        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        border-color: #4CAF50;
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+    }
+    .requirement-closed-checkbox:checked + .requirement-closed-checkbox-custom::after {
+        content: '✓';
+        color: white;
+        font-size: 16px;
+        font-weight: bold;
+        line-height: 1;
+    }
+    .requirement-closed-checkbox-label:hover .requirement-closed-checkbox-custom {
+        border-color: #4CAF50;
+        transform: scale(1.05);
+    }
+    .requirement-closed-checkbox-text {
+        font-size: 15px;
+        font-weight: 600;
+        color: #495057;
+        flex: 1;
+    }
+    .requirement-closed-checkbox:checked ~ .requirement-closed-checkbox-text {
+        color: #4CAF50;
     }
     @media (max-width: 768px) {
         .requirements-section {

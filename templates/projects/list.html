@@ -1,49 +1,139 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Проекты - Project Manager{% endblock %}
 
 {% block content %}
-<h1>Проекты</h1>
+<div class="projects-container">
+    <div class="projects-list">
+        {% if projects %}
+        <div class="projects-cards">
+            {% for project in projects %}
+            <div class="project-card" data-project-id="{{ project.id }}">
+                <div class="project-card-content">
+                    <span class="project-code">{{ project.code }}</span>
+                    <span class="project-separator">|</span>
+                    <span class="project-status">
+                        {% with status_color=project.status.color|default:"#999999" %}
+                            {% if status_color == "#FFFFFF" or status_color == "#ffffff" or status_color == "white" or not status_color %}
+                                <span class="status-badge" style="background-color: #667eea !important;">
+                                    {{ project.status.name }}
+                                </span>
+                            {% else %}
+                                <span class="status-badge" style="background-color: {{ status_color }} !important;">
+                                    {{ project.status.name }}
+                                </span>
+                            {% endif %}
+                        {% endwith %}
+                    </span>
+                    <span class="project-separator">|</span>
+                    <span class="project-percent">{{ project.completion_percent }}%</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="no-projects">Проекты не найдены.</p>
+        {% endif %}
+    </div>
+    
+    <div class="project-details" id="projectDetails">
+        <div class="project-details-placeholder">
+            <p>Выберите проект для просмотра деталей</p>
+        </div>
+        <div class="project-details-content" style="display: none;">
+            <div class="project-details-header">
+                <div class="detail-item">
+                    <span class="detail-label">КОД:</span>
+                    <span class="detail-value" id="detailCode">—</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Название:</span>
+                    <span class="detail-value" id="detailName">—</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Процент:</span>
+                    <span class="detail-value" id="detailPercent">—</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Статус:</span>
+                    <span class="detail-value" id="detailStatus">—</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Описание:</span>
+                    <span class="detail-value" id="detailNote">—</span>
+                </div>
+            </div>
+            <div class="project-details-body">
+                <div class="details-left-column">
+                    <!-- Левая колонка 70% -->
+                </div>
+                <div class="details-right-column">
+                    <!-- Правая колонка 30% -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-{% if projects %}
-<table class="projects-table">
-    <thead>
-        <tr>
-            <th>Имя</th>
-            <th>Шифр</th>
-            <th>Код</th>
-            <th>Статус</th>
-            <th>% готовности</th>
-            <th>Ответственные</th>
-            <th>Создан</th>
-        </tr>
-    </thead>
-    <tbody>
+<script>
+    // Передача данных проектов в JavaScript
+    const projectsData = [
         {% for project in projects %}
-        <tr>
-            <td>{{ project.name }}</td>
-            <td>{{ project.cipher }}</td>
-            <td>{{ project.code }}</td>
-            <td>
-                <span class="status-badge" style="background-color: {{ project.status.color }};">
-                    {{ project.status.name }}
-                </span>
-            </td>
-            <td>{{ project.completion_percent }}%</td>
-            <td>
-                {% for user in project.responsible.all %}
-                    {{ user.username }}{% if not forloop.last %}, {% endif %}
-                {% empty %}
-                    Не назначен
-                {% endfor %}
-            </td>
-            <td>{{ project.created_at|date:"d.m.Y" }}</td>
-        </tr>
+        {
+            id: {{ project.id }},
+            code: "{{ project.code|escapejs }}",
+            name: "{{ project.name|escapejs }}",
+            completion_percent: {{ project.completion_percent }},
+            status: {
+                name: "{{ project.status.name|escapejs }}",
+                color: "{{ project.status.color|escapejs }}"
+            },
+            note: "{{ project.note|escapejs|default:'' }}"
+        }{% if not forloop.last %},{% endif %}
         {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p>Проекты не найдены.</p>
-{% endif %}
+    ];
+
+    // Обработка выбора проекта
+    function selectProject(projectId) {
+        // Найти проект в данных
+        const project = projectsData.find(p => p.id === projectId);
+        if (!project) return;
+
+        // Убрать выделение со всех карточек
+        document.querySelectorAll('.project-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+
+        // Выделить выбранную карточку
+        const selectedCard = document.querySelector(`.project-card[data-project-id="${projectId}"]`);
+        if (selectedCard) {
+            selectedCard.classList.add('selected');
+        }
+
+        // Отобразить детали проекта
+        document.getElementById('detailCode').textContent = project.code;
+        document.getElementById('detailName').textContent = project.name;
+        document.getElementById('detailPercent').textContent = project.completion_percent + '%';
+        document.getElementById('detailStatus').innerHTML = 
+            '<span class="status-badge" style="background-color: ' + project.status.color + ';">' + 
+            project.status.name + '</span>';
+        document.getElementById('detailNote').textContent = project.note || '—';
+
+        // Показать детали, скрыть placeholder
+        document.querySelector('.project-details-placeholder').style.display = 'none';
+        document.querySelector('.project-details-content').style.display = 'block';
+    }
+
+    // Добавить обработчики клика на карточки проектов
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.project-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const projectId = parseInt(this.getAttribute('data-project-id'));
+                selectProject(projectId);
+            });
+        });
+    });
+</script>
 {% endblock %}
 

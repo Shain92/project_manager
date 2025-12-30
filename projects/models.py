@@ -199,3 +199,119 @@ def delete_note_file(sender, instance, **kwargs):
                     os.remove(file_path)
             except OSError:
                 pass  # Игнорируем ошибки удаления файла
+
+
+class Requirement(models.Model):
+    """Модель потребности проекта"""
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='requirements',
+        verbose_name='Проект'
+    )
+    initiator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='requirements',
+        verbose_name='Инициатор'
+    )
+    title = models.CharField(max_length=200, verbose_name='Название')
+    for_whom = models.CharField(max_length=200, verbose_name='Для')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлен')
+
+    class Meta:
+        verbose_name = 'Потребность'
+        verbose_name_plural = 'Потребности'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
+
+
+def requirement_file_upload_path(instance, filename):
+    """Генерация пути для загрузки файла потребности"""
+    ext = filename.split('.')[-1]
+    filename = f"{uuid.uuid4()}.{ext}"
+    return os.path.join('requirements', filename)
+
+
+class RequirementFile(models.Model):
+    """Модель файла, прикрепленного к потребности"""
+    requirement = models.ForeignKey(
+        Requirement,
+        on_delete=models.CASCADE,
+        related_name='files',
+        verbose_name='Потребность'
+    )
+    file = models.FileField(
+        upload_to=requirement_file_upload_path,
+        verbose_name='Файл'
+    )
+    original_name = models.CharField(
+        max_length=255,
+        verbose_name='Оригинальное имя файла'
+    )
+    file_size = models.IntegerField(
+        verbose_name='Размер файла (байт)'
+    )
+    uploaded_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Загружен'
+    )
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='uploaded_requirement_files',
+        verbose_name='Загрузил'
+    )
+
+    class Meta:
+        verbose_name = 'Файл потребности'
+        verbose_name_plural = 'Файлы потребностей'
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return self.original_name
+    
+    def get_file_size_display(self):
+        """Получить размер файла в читаемом формате"""
+        size = self.file_size
+        for unit in ['Б', 'КБ', 'МБ', 'ГБ']:
+            if size < 1024.0:
+                return f"{size:.1f} {unit}"
+            size /= 1024.0
+        return f"{size:.1f} ТБ"
+    
+    def delete(self, *args, **kwargs):
+        """Удалить файл с диска перед удалением записи"""
+        if self.file:
+            try:
+                # Используем storage для удаления файла
+                self.file.delete(save=False)
+            except Exception:
+                # Если storage не удалось удалить, пробуем через os
+                try:
+                    file_path = self.file.path
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                except OSError:
+                    pass  # Игнорируем ошибки удаления файла
+        super().delete(*args, **kwargs)
+
+
+@receiver(pre_delete, sender=RequirementFile)
+def delete_requirement_file(sender, instance, **kwargs):
+    """Сигнал для удаления файла перед удалением записи RequirementFile"""
+    if instance.file:
+        try:
+            # Используем storage для удаления файла
+            instance.file.delete(save=False)
+        except Exception:
+            # Если storage не удалось удалить, пробуем через os
+            try:
+                file_path = instance.file.path
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except OSError:
+                pass  # Игнорируем ошибки удаления файла

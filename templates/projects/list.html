@@ -76,10 +76,57 @@
                     </div>
                 </div>
                 <div class="details-right-column">
-                    <!-- Правая колонка 30% -->
+                    <!-- Блок потребностей -->
+                    <div class="requirements-section">
+                        <div class="requirements-header">
+                            <h3>Потребность</h3>
+                            <button id="createRequirementBtn" class="btn-create-requirement">+</button>
+                        </div>
+                        <div id="requirementsContainer" class="requirements-container">
+                            <!-- Потребности будут загружаться здесь -->
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Модальное окно для создания/редактирования потребности -->
+<div id="requirementModal" class="requirement-modal">
+    <div class="requirement-modal-content">
+        <div class="requirement-modal-header">
+            <h3 id="requirementModalTitle">Создать потребность</h3>
+            <button class="requirement-modal-close" id="requirementModalClose">&times;</button>
+        </div>
+        <form id="requirementForm" class="requirement-form">
+            <input type="hidden" id="requirementId" value="">
+            <input type="hidden" id="requirementProjectId" value="">
+            
+            <div class="form-group">
+                <label for="requirementTitle">Название</label>
+                <input type="text" id="requirementTitle" name="title" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="requirementForWhom">Для</label>
+                <input type="text" id="requirementForWhom" name="for_whom" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="requirementFiles">Файлы</label>
+                <input type="file" id="requirementFiles" name="files" multiple>
+                <div id="requirementFilesList" class="requirement-files-list"></div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="btn-delete" id="requirementModalDelete" style="display: none;">Удалить</button>
+                <div class="form-actions-right">
+                    <button type="button" class="btn-cancel" id="requirementModalCancel">Отмена</button>
+                    <button type="submit" class="btn-submit">Сохранить</button>
+                </div>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -389,6 +436,9 @@
 
         // Загрузить заметки проекта
         loadNotes(projectId);
+        
+        // Загрузить потребности проекта
+        loadRequirements(projectId);
     }
 
     // Вернуться к списку проектов (для мобильных)
@@ -905,6 +955,387 @@
                     updateNote(noteId, title, description, status);
                 } else {
                     createNote(projectId, title, description, status);
+                }
+            });
+        }
+    });
+
+    // ========== Функции для работы с потребностями ==========
+    
+    // Загрузить потребности проекта
+    function loadRequirements(projectId) {
+        // Сохранить projectId в скрытое поле
+        const projectIdField = document.getElementById('requirementProjectId');
+        if (projectIdField) {
+            projectIdField.value = projectId;
+        }
+        
+        fetch(`/projects/requirements/${projectId}/`)
+            .then(response => response.json())
+            .then(data => {
+                displayRequirements(data.requirements);
+            })
+            .catch(error => {
+                console.error('Ошибка загрузки потребностей:', error);
+                document.getElementById('requirementsContainer').innerHTML = '<p class="no-requirements">Ошибка загрузки потребностей</p>';
+            });
+    }
+
+    // Отобразить потребности
+    function displayRequirements(requirements) {
+        const container = document.getElementById('requirementsContainer');
+        
+        if (!requirements || requirements.length === 0) {
+            container.innerHTML = '<p class="no-requirements">Потребностей пока нет</p>';
+            return;
+        }
+
+        container.innerHTML = requirements.map(requirement => {
+            const filesHtml = requirement.files && requirement.files.length > 0 
+                ? `<div class="requirement-files">
+                    ${requirement.files.map(file => `
+                        <div class="requirement-file-item">
+                            <span class="requirement-file-name">${escapeHtml(file.original_name)}</span>
+                            <span class="requirement-file-size">${escapeHtml(file.file_size_display)}</span>
+                            <button class="requirement-file-download" onclick="downloadRequirementFile(${file.id})" title="Скачать">↓</button>
+                        </div>
+                    `).join('')}
+                </div>`
+                : '';
+            
+            return `
+            <div class="requirement-card" data-requirement-id="${requirement.id}">
+                <div class="requirement-card-header">
+                    <div class="requirement-header-info">
+                        <div class="requirement-header-top">
+                            <span class="requirement-date">${requirement.created_at}</span>
+                        </div>
+                        <h4 class="requirement-title clickable" onclick="editRequirement(${requirement.id})" title="Нажмите для редактирования">${escapeHtml(requirement.title)}</h4>
+                    </div>
+                </div>
+                <div class="requirement-card-body">
+                    <p class="requirement-for-whom"><strong>Для:</strong> ${escapeHtml(requirement.for_whom)}</p>
+                    ${filesHtml}
+                </div>
+            </div>
+            `;
+        }).join('');
+    }
+
+    // Открыть модальное окно для создания потребности
+    function openCreateRequirementModal(projectId) {
+        document.getElementById('requirementModalTitle').textContent = 'Создать потребность';
+        document.getElementById('requirementId').value = '';
+        document.getElementById('requirementProjectId').value = projectId;
+        document.getElementById('requirementTitle').value = '';
+        document.getElementById('requirementForWhom').value = '';
+        document.getElementById('requirementFiles').value = '';
+        document.getElementById('requirementFilesList').innerHTML = '';
+        document.getElementById('requirementModalDelete').style.display = 'none';
+        document.getElementById('requirementModal').style.display = 'block';
+    }
+
+    // Открыть модальное окно для редактирования потребности
+    function editRequirement(requirementId) {
+        const requirementCard = document.querySelector(`.requirement-card[data-requirement-id="${requirementId}"]`);
+        if (!requirementCard) return;
+
+        const requirementTitle = requirementCard.querySelector('.requirement-title').textContent;
+        const requirementForWhom = requirementCard.querySelector('.requirement-for-whom').textContent.replace('Для: ', '');
+        const projectId = document.getElementById('requirementProjectId').value || 
+                         getURLParams().projectId;
+
+        // Загрузить данные потребности для получения файлов
+        const params = getURLParams();
+        fetch(`/projects/requirements/${params.projectId}/`)
+            .then(response => response.json())
+            .then(data => {
+                const requirement = data.requirements.find(r => r.id === requirementId);
+                if (requirement) {
+                    displayRequirementFiles(requirement.files || []);
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка загрузки файлов:', error);
+                displayRequirementFiles([]);
+            });
+
+        document.getElementById('requirementModalTitle').textContent = 'Редактировать потребность';
+        document.getElementById('requirementId').value = requirementId;
+        document.getElementById('requirementProjectId').value = projectId;
+        document.getElementById('requirementTitle').value = requirementTitle;
+        document.getElementById('requirementForWhom').value = requirementForWhom;
+        document.getElementById('requirementFiles').value = '';
+        document.getElementById('requirementModalDelete').style.display = 'block';
+        document.getElementById('requirementModal').style.display = 'block';
+    }
+    
+    // Отобразить список файлов в модальном окне
+    function displayRequirementFiles(files) {
+        const filesList = document.getElementById('requirementFilesList');
+        if (!files || files.length === 0) {
+            filesList.innerHTML = '';
+            return;
+        }
+        
+        filesList.innerHTML = files.map(file => `
+            <div class="requirement-file-item-modal" data-file-id="${file.id}">
+                <span class="requirement-file-name">${escapeHtml(file.original_name)}</span>
+                <span class="requirement-file-size">${escapeHtml(file.file_size_display)}</span>
+                <button class="requirement-file-delete" onclick="deleteRequirementFileFromRequirement(${file.id})" title="Удалить">×</button>
+            </div>
+        `).join('');
+    }
+
+    // Закрыть модальное окно
+    function closeRequirementModal() {
+        document.getElementById('requirementModal').style.display = 'none';
+    }
+
+    // Создать потребность
+    function createRequirement(projectId, title, forWhom) {
+        fetch('/projects/requirements/create/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                project_id: projectId,
+                title: title,
+                for_whom: forWhom
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const requirementId = data.requirement.id;
+                // Загрузить файлы, если они есть
+                const fileInput = document.getElementById('requirementFiles');
+                if (fileInput.files.length > 0) {
+                    uploadFilesToRequirement(requirementId, fileInput.files, () => {
+                        closeRequirementModal();
+                        loadRequirements(projectId);
+                    });
+                } else {
+                    closeRequirementModal();
+                    loadRequirements(projectId);
+                }
+            } else {
+                alert('Ошибка создания потребности: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка создания потребности:', error);
+            alert('Ошибка создания потребности');
+        });
+    }
+
+    // Обновить потребность
+    function updateRequirement(requirementId, title, forWhom) {
+        fetch(`/projects/requirements/${requirementId}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                title: title,
+                for_whom: forWhom
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const projectId = document.getElementById('requirementProjectId').value || 
+                                 getURLParams().projectId;
+                // Загрузить файлы, если они есть
+                const fileInput = document.getElementById('requirementFiles');
+                if (fileInput.files.length > 0) {
+                    uploadFilesToRequirement(requirementId, fileInput.files, () => {
+                        closeRequirementModal();
+                        loadRequirements(projectId);
+                    });
+                } else {
+                    closeRequirementModal();
+                    loadRequirements(projectId);
+                }
+            } else {
+                alert('Ошибка обновления потребности: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка обновления потребности:', error);
+            alert('Ошибка обновления потребности');
+        });
+    }
+
+    // Удалить потребность
+    function deleteRequirement(requirementId) {
+        if (!confirm('Вы уверены, что хотите удалить эту потребность?')) {
+            return;
+        }
+
+        fetch(`/projects/requirements/${requirementId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeRequirementModal();
+                const projectId = document.getElementById('requirementProjectId').value || 
+                                 getURLParams().projectId;
+                loadRequirements(projectId);
+            } else {
+                alert('Ошибка удаления потребности: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка удаления потребности:', error);
+            alert('Ошибка удаления потребности');
+        });
+    }
+
+    // Загрузить файлы к потребности
+    function uploadFilesToRequirement(requirementId, files, callback) {
+        const promises = [];
+        for (let i = 0; i < files.length; i++) {
+            const formData = new FormData();
+            formData.append('file', files[i]);
+            
+            promises.push(
+                fetch(`/projects/requirements/${requirementId}/files/upload/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: formData
+                })
+            );
+        }
+        
+        Promise.all(promises)
+            .then(responses => Promise.all(responses.map(r => r.json())))
+            .then(results => {
+                const errors = results.filter(r => !r.success);
+                if (errors.length > 0) {
+                    alert('Ошибка загрузки некоторых файлов');
+                }
+                if (callback) callback();
+            })
+            .catch(error => {
+                console.error('Ошибка загрузки файлов:', error);
+                alert('Ошибка загрузки файлов');
+                if (callback) callback();
+            });
+    }
+    
+    // Удалить файл из потребности
+    function deleteRequirementFileFromRequirement(fileId) {
+        if (!confirm('Вы уверены, что хотите удалить этот файл?')) {
+            return;
+        }
+        
+        fetch(`/projects/requirement-files/${fileId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Удалить элемент из списка
+                const fileItem = document.querySelector(`.requirement-file-item-modal[data-file-id="${fileId}"]`);
+                if (fileItem) {
+                    fileItem.remove();
+                }
+                // Обновить список потребностей
+                const projectId = document.getElementById('requirementProjectId').value || 
+                                 getURLParams().projectId;
+                loadRequirements(projectId);
+            } else {
+                alert('Ошибка удаления файла: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка удаления файла:', error);
+            alert('Ошибка удаления файла');
+        });
+    }
+    
+    // Скачать файл потребности
+    function downloadRequirementFile(fileId) {
+        window.location.href = `/projects/requirement-files/${fileId}/download/`;
+    }
+
+    // Обработчики событий для модального окна потребностей
+    document.addEventListener('DOMContentLoaded', function() {
+        const createRequirementBtn = document.getElementById('createRequirementBtn');
+        const requirementModal = document.getElementById('requirementModal');
+        const requirementModalClose = document.getElementById('requirementModalClose');
+        const requirementModalCancel = document.getElementById('requirementModalCancel');
+        const requirementModalDelete = document.getElementById('requirementModalDelete');
+        const requirementForm = document.getElementById('requirementForm');
+
+        // Открыть модальное окно для создания
+        if (createRequirementBtn) {
+            createRequirementBtn.addEventListener('click', function() {
+                const projectId = getURLParams().projectId;
+                if (projectId) {
+                    openCreateRequirementModal(projectId);
+                } else {
+                    alert('Выберите проект для создания потребности');
+                }
+            });
+        }
+
+        // Закрыть модальное окно
+        if (requirementModalClose) {
+            requirementModalClose.addEventListener('click', closeRequirementModal);
+        }
+        if (requirementModalCancel) {
+            requirementModalCancel.addEventListener('click', closeRequirementModal);
+        }
+
+        // Обработчик кнопки удаления
+        if (requirementModalDelete) {
+            requirementModalDelete.addEventListener('click', function() {
+                const requirementId = document.getElementById('requirementId').value;
+                if (requirementId) {
+                    deleteRequirement(requirementId);
+                }
+            });
+        }
+
+        // Закрыть при клике вне модального окна
+        if (requirementModal) {
+            requirementModal.addEventListener('click', function(e) {
+                if (e.target === requirementModal) {
+                    closeRequirementModal();
+                }
+            });
+        }
+
+        // Обработка формы
+        if (requirementForm) {
+            requirementForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const requirementId = document.getElementById('requirementId').value;
+                const projectId = document.getElementById('requirementProjectId').value;
+                const title = document.getElementById('requirementTitle').value;
+                const forWhom = document.getElementById('requirementForWhom').value;
+
+                if (requirementId) {
+                    updateRequirement(requirementId, title, forWhom);
+                } else {
+                    createRequirement(projectId, title, forWhom);
                 }
             });
         }

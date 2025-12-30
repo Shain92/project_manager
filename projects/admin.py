@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Project, ProjectStatus, Note, NoteFile
+from .models import Project, ProjectStatus, Note, NoteFile, Requirement, RequirementFile
 
 
 @admin.register(ProjectStatus)
@@ -63,6 +63,40 @@ class NoteFileAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Основная информация', {
             'fields': ('note', 'file', 'original_name', 'uploaded_by')
+        }),
+        ('Дополнительно', {
+            'fields': ('file_size', 'uploaded_at')
+        }),
+    )
+
+
+@admin.register(Requirement)
+class RequirementAdmin(admin.ModelAdmin):
+    """Админка для потребностей"""
+    list_display = ['title', 'project', 'initiator', 'for_whom', 'created_at']
+    list_filter = ['created_at', 'project']
+    search_fields = ['title', 'for_whom']
+    readonly_fields = ['created_at', 'updated_at']
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('project', 'initiator', 'title', 'for_whom')
+        }),
+        ('Временные метки', {
+            'fields': ('created_at', 'updated_at')
+        }),
+    )
+
+
+@admin.register(RequirementFile)
+class RequirementFileAdmin(admin.ModelAdmin):
+    """Админка для файлов потребностей"""
+    list_display = ['original_name', 'requirement', 'uploaded_by', 'file_size', 'uploaded_at']
+    list_filter = ['uploaded_at', 'requirement']
+    search_fields = ['original_name', 'requirement__title']
+    readonly_fields = ['uploaded_at', 'file_size']
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('requirement', 'file', 'original_name', 'uploaded_by')
         }),
         ('Дополнительно', {
             'fields': ('file_size', 'uploaded_at')

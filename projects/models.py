@@ -38,6 +38,12 @@ class Project(models.Model):
         related_name='projects',
         verbose_name='Статус'
     )
+    construction_site = models.ForeignKey(
+        'building_sites.BuildingSite',
+        on_delete=models.PROTECT,
+        related_name='projects',
+        verbose_name='Строительный участок'
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлен')
 

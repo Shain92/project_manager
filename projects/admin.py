@@ -12,14 +12,14 @@ class ProjectStatusAdmin(admin.ModelAdmin):
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
     """Админка для проектов"""
-    list_display = ['name', 'cipher', 'code', 'status', 'completion_percent', 'created_at']
-    list_filter = ['status', 'created_at']
+    list_display = ['name', 'cipher', 'code', 'status', 'construction_site', 'completion_percent', 'created_at']
+    list_filter = ['status', 'construction_site', 'created_at']
     search_fields = ['name', 'cipher', 'code']
     filter_horizontal = ['responsible']
     readonly_fields = ['created_at', 'updated_at']
     fieldsets = (
         ('Основная информация', {
-            'fields': ('name', 'cipher', 'code', 'status')
+            'fields': ('name', 'cipher', 'code', 'status', 'construction_site')
         }),
         ('Ответственные', {
             'fields': ('responsible',)
